@@ -2,6 +2,7 @@ import omdb
 import dicttoxml
 import re
 from xml.dom.minidom import parseString
+import ConfigParser
 
 def querymovie(*args, **kwargs):
 	title = kwargs.get('title', '')
@@ -42,6 +43,14 @@ def searchmovie(title, year):
 	return ''
 
 def main():
+
+	config = ConfigParser.RawConfigParser()
+	config.read('GM.cfg')
+	movies_repo = config.get('Path','movies_repo')
+	genres_path = config.get('Path','genre_path')	
+	genres = dict(config.items('Genre'))
+	#print genres
+
 	m = str(raw_input('Movie Name: '))
 	y = str(raw_input('Movie Year: '))
 
@@ -49,6 +58,8 @@ def main():
 
 	if len(res)>0:
 		print 'Movie:\t'+res['title']+', '+res['year']+', '+res['imdb_id']+', '+res['genre']
+		xml = re.sub('root','movie',dicttoxml.dicttoxml(res).encode('utf-8'))
+		print parseString(xml).toprettyxml()
 
 if __name__ == '__main__':
 	main()
