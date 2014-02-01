@@ -1,7 +1,7 @@
 [Path]
-movies_repo = '/data/movie_repo/.ALL/'
-genre_path = '/shared/movies/'
+movies_repo = /data/movie_repo/.ALL/
+genre_path = /shared/movies/
 
 [Genre]
 # program automatically matches vary capitalization styles. ie. "action" matches "action", "ACTION", or "Action". Hence you do not have to specify capitalization styles here.
-Sci-Fi = 'SciFi'
+Sci-Fi = SciFi
