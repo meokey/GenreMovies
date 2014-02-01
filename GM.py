@@ -90,6 +90,27 @@ def searchdir(movies_repo):
 
 	return moviedict
 
+def matchgenre(imdb_genre,genres,genres_path):
+# imdb_genre = genre from IMDB, case insensitive
+# genres is a dict from Genre section of GM.cfg
+# genres_path is the path to a folder where movies are linked to by genres
+
+	imdb_genre = imdb_genre.lower()
+	
+	# match Genre section in config file
+	if genres.get(imdb_genre):
+		p = genres_path+genres.get(imdb_genre)+"/"
+		if isdir(p):
+			return genres_path+genres.get(imdb_genre)+"/"
+	else:
+	# match folders
+		g = os.listdir(genres_path)
+		r = [m.group(0) for l in g for m in [re.compile("^("+imdb_genre+").*",re.I).search(l)] if m]
+		if len(r)==1:
+			if os.path.isdir(genres_path+r[0]+'/'):
+				return genres_path+r[0]+'/'
+	# match None	
+	return None
 
 def main():
 

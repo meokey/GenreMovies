@@ -4,4 +4,5 @@ genre_path = /shared/movies/
 
 [Genre]
 # program automatically matches vary capitalization styles. ie. "action" matches "action", "ACTION", or "Action". Hence you do not have to specify capitalization styles here.
+# the left genres are case insensetive, but the value on the right has to match the folder name and is case sensetive
 Sci-Fi = SciFi
