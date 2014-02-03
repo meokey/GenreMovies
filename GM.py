@@ -1,7 +1,7 @@
 from os import listdir, symlink
-from os.path import isfile, isdir, join, split
+from os.path import isfile, isdir, islink, join, split
 import errno, sys
-import re, pprint
+import re, pprint, json
 
 from xml.dom.minidom import parseString, Document
 from optparse import OptionParser,OptionGroup
@@ -162,21 +162,29 @@ def matchgenre(imdb_genre,genres,genres_path):
 	# match None	
 	return None
 
+
+def argus():
+	usage = 'Usage: %prog [-n] [-c /path/to/config|-r /path/to/movie_repo -g /path/to/genre]|[-t todo.lst]'
+        version = 'v0.3'
+
+        parser = OptionParser(usage=usage,version="%prog "+version)
+        parser.add_option("-n","--dry-run", action="store_true", dest="display", default=False, help="display only, do no harm")
+        group1 = OptionGroup(parser, "Configuration Options")
+        group1.add_option("-c","--config", type="string", dest="config",default="GM.cfg", metavar="/path/to/config", help="desired config file, default file is [%default]")
+        group1.add_option("-r","--repository",type="string",dest="movies_repo",metavar="/path/to/movie_repo", help="the path to movies repository")
+        group1.add_option("-g","--genres_path",type="string",dest="genres_path",metavar="/path/to/genre", help="the path to genres directory")
+        parser.add_option_group(group1)
+        group2 = OptionGroup(parser,"Use Todo List to Parser Movies")
+        group2.add_option("-t","--todo", type="string", dest="todo", metavar="/path/to/todo.lst", default="todo.lst", help=" the path to todo list file, default todo list file is [%default]")
+        parser.add_option_group(group2)
+
+	return parser
+
 def main():
 	
-	usage = 'Usage: %prog [-n] [-c /path/to/config|-r /path/to/movie_repo -g /path/to/genre]'
-	version = 'v0.3'
-	
-	parser = OptionParser(usage=usage,version="%prog "+version)
-	parser.add_option("-n","--dry-run", action="store_true", dest="display", default=False, help="display only, do no harm")
-	group1 = OptionGroup(parser, "Configuration Options")
-	group1.add_option("-c","--config", type="string", dest="config",default="GM.cfg", metavar="/path/to/config", help="desired config file, default file is [%default]")
-	group1.add_option("-r","--repository",type="string",dest="movies_repo",metavar="/path/to/movie_repo", help="the path to movies repository")
-	group1.add_option("-g","--genres_path",type="string",dest="genres_path",metavar="/path/to/genre", help="the path to genres directory")
-	parser.add_option_group(group1)
-
+	parser = argus()
 	(opts, args) = parser.parse_args()
-	print opts.display,opts.config,opts.movies_repo,opts.genres_path	# comment
+	#print opts.display,opts.config,opts.movies_repo,opts.genres_path	# comment
 
 	if opts.config:
 		confile = opts.config
@@ -208,19 +216,33 @@ def main():
         #print 'we have processed the following '+str(len(y))+' movies.'
 	#ppprint().pprint(y.keys())
 	for m in y:
-		for g in y[m]:
-			#print m.decode("utf-8"),g		# comment
-			linkd = matchgenre(g,genres,genres_path)
-			if linkd:
-				#print linkd+m		# comment
-				if not isfile(linkd+m):
-					if opts.display:
-						print 'Link ['+linkd+m+'] would be created for movie ['+m+'].'
-					else:
-						symlink(movies_repo+m,linkd+m)
-						# print 'Link ['+linkd+m+'] is created for movie ['+m+'].'	
+		if y[m]:
+			json.dump(y[m],open(movies_repo+m+'/.genres.dat','w'))
+			for g in y[m]:
+				#print m.decode("utf-8"),g		# comment
+				linkd = matchgenre(g,genres,genres_path)
+				if linkd:
+					#print linkd+m		# comment
+					if not isfile(linkd+m):
+						if opts.display:
+							print 'Link ['+linkd+m+'] would be created for movie ['+m+'].'
+						else:
+							if not islink(linkd+m):
+								symlink(movies_repo+m,linkd+m)
+								# print 'Link ['+linkd+m+'] is created for movie ['+m+'].'
+							#else:
+								# print 'Link ['+linkd+m+'] exists.'
+
 	print '\nwe find no IMDB info for the following '+str(len(n))+' movies,'
-	ppprint().pprint(n.keys())
+	#ppprint().pprint(n.keys())
+	if opts.display:
+		f = open('todo.lst','w')
+	for m in n:
+		print m.encode("utf-8")
+		if opts.display:
+			f.write(join(movies_repo,m.encode("utf-8"),'\n'))
+	if opts.display:
+		f.close()
 
 if __name__ == '__main__':
 	main()
