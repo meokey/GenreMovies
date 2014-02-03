@@ -1,7 +1,7 @@
 from os import listdir, symlink
 from os.path import isfile, isdir, islink, join, split
 import errno, sys
-import re, pprint, json
+import re, pprint, json, ast
 
 from xml.dom.minidom import parseString, Document
 from optparse import OptionParser,OptionGroup
@@ -107,7 +107,7 @@ def moviename(d):
 
 	return (title, year, imdbid)
 
-def searchdir(movies_repo):
+def searchdir(movies_repo,opt_display):
 	y = {}
 	n = {}
 
@@ -115,6 +115,11 @@ def searchdir(movies_repo):
 		md = join(movies_repo,d)
 		if isdir(md):
 			#print d	# comment
+	
+			if isfile(md+'/'+d+'.imdb.xml'):	# existance of imdb.xml indicates that links have been created, skip
+				continue
+
+			# check omdbapi.com to gather imdb info for the movie
 			title, year, imdbid = moviename(d)					
 			res = querymovie(title=title, year=year,imdbid=imdbid)
 
@@ -122,20 +127,29 @@ def searchdir(movies_repo):
 				#print u'Movie:\t'+res['title'].decode("utf-8")+u', '+res['year'].decode("utf-8")+u', '+res['imdb_id'].decode("utf-8")+u', '+res['genre'].decode("utf-8")	# comment
 				
 				#xmlfile = movies_repo+d+'/'+res['title']+'.('+res['year']+')'+'.'+res['imdb_id']+'.imdb.xml'
-				xmlfile = movies_repo+d+'/'+d+'.imdb.xml'
-				if not isfile(xmlfile):
+				xmlfile = md+'/'+d+'.imdb.xml'
+				if (not isfile(xmlfile)) and (not opt_display):
 					f = open(xmlfile,'w')
-					f.write(parseString(re.sub('root','movie',dicttoxml.dicttoxml(res).encode('utf-8'))).toprettyxml())
+					f.write(parseString(re.sub(u'root',u'movie',dicttoxml.dicttoxml(res).encode('utf-8'))).toprettyxml())
 					f.close()
 				genres = res['genre']
 				genres = genres.replace(" ","").split(",")
 				y[d] = genres
+				if not opt_display:
+					json.dump(genres,open(md+'/.genres.dat','w'))
 	
 				#xml = re.sub('root','movie',dicttoxml.dicttoxml(res).encode('utf-8'))
 				#print parseString(xml).toprettyxml()
 			else:
-				#print 'I can not find the movie ['+d+'], or something likewise.'
-				n[d.decode('utf-8')] = ''
+				# check .genres.dat file for pre-defined genres to the movie
+	                        if isfile(md+'/.genres.dat'):
+        	                        with open(md+'/.genres.dat','r') as f:
+                	                        gerens = ast.literal_eval(f.read())
+					f.close()
+					y[d] = gerens
+				else:
+					#print 'I can not find the movie ['+d+'], or something likewise.'
+					n[d.decode('utf-8')] = ''
 
 	return (y,n)
 
@@ -211,13 +225,13 @@ def main():
         #y = str(raw_input('Movie Year: '))
         #res = querymovie(title=m, year=y)
         
-	y,n = searchdir(movies_repo)
+	y,n = searchdir(movies_repo,opts.display)
 
         #print 'we have processed the following '+str(len(y))+' movies.'
 	#ppprint().pprint(y.keys())
 	for m in y:
 		if y[m]:
-			json.dump(y[m],open(movies_repo+m+'/.genres.dat','w'))
+			#json.dump(y[m],open(movies_repo+m+'/.genres.dat','w'))		# code move to searchdir()
 			for g in y[m]:
 				#print m.decode("utf-8"),g		# comment
 				linkd = matchgenre(g,genres,genres_path)
@@ -236,13 +250,14 @@ def main():
 	print '\nwe find no IMDB info for the following '+str(len(n))+' movies,'
 	#ppprint().pprint(n.keys())
 	if opts.display:
-		f = open('todo.lst','w')
+		td = 'todo.mock.lst'
+	else:
+		td = 'todo.lst'
+	f = open(td,'w')
 	for m in n:
 		print m.encode("utf-8")
-		if opts.display:
-			f.write(join(movies_repo,m.encode("utf-8"),'\n'))
-	if opts.display:
-		f.close()
+		f.write(join(movies_repo,m.encode("utf-8"),'\n'))
+	f.close()
 
 if __name__ == '__main__':
 	main()
