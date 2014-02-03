@@ -1,9 +1,10 @@
-from os import listdir
+from os import listdir, symlink
 from os.path import isfile, isdir, join, split
 import errno, sys
 import re, pprint
 
 from xml.dom.minidom import parseString, Document
+from optparse import OptionParser,OptionGroup
 import ConfigParser
 
 import omdb
@@ -21,7 +22,7 @@ def querymovie(*args, **kwargs):
 	year = kwargs.get('year', '')
 	imdbid = kwargs.get('imdbid', None)
 
-	print '###querymovie###',title, year, imdbid    #comments
+	#print '###querymovie###',title, year, imdbid    #comments
 	if title:
 		title = title.replace('.',' ')
 
@@ -75,7 +76,7 @@ def moviename(d):
 	
 	aaa = '720p|1080p|dvdrip|dbd-rip|bdrip|brrip|bluray|h264|x264|xvid|ntsc|pal|hq|dts|hdtv|aac'
 	
-	print '###moviename###	'+d		#comment	
+	#print '###moviename###	'+d		#comment	
 	tt = re.search(r'(tt\d{7})',d)
         if tt:
                 imdbid = tt.group(1)
@@ -113,24 +114,28 @@ def searchdir(movies_repo):
 	for d in listdir(movies_repo):
 		md = join(movies_repo,d)
 		if isdir(md):
-			#print d
+			#print d	# comment
 			title, year, imdbid = moviename(d)					
 			res = querymovie(title=title, year=year,imdbid=imdbid)
 
 			if len(res)>0:
-				print u'Movie:\t'+res['title'].decode("utf-8")+u', '+res['year'].decode("utf-8")+u', '+res['imdb_id'].decode("utf-8")+u', '+res['genre'].decode("utf-8")
-				y[md.decode("utf-8")] = res
+				#print u'Movie:\t'+res['title'].decode("utf-8")+u', '+res['year'].decode("utf-8")+u', '+res['imdb_id'].decode("utf-8")+u', '+res['genre'].decode("utf-8")	# comment
+				
 				#xmlfile = movies_repo+d+'/'+res['title']+'.('+res['year']+')'+'.'+res['imdb_id']+'.imdb.xml'
 				xmlfile = movies_repo+d+'/'+d+'.imdb.xml'
 				if not isfile(xmlfile):
 					f = open(xmlfile,'w')
 					f.write(parseString(re.sub('root','movie',dicttoxml.dicttoxml(res).encode('utf-8'))).toprettyxml())
 					f.close()
+				genres = res['genre']
+				genres = genres.replace(" ","").split(",")
+				y[d] = genres
+	
 				#xml = re.sub('root','movie',dicttoxml.dicttoxml(res).encode('utf-8'))
 				#print parseString(xml).toprettyxml()
 			else:
 				#print 'I can not find the movie ['+d+'], or something likewise.'
-				n[md.decode("utf-8")] = ''
+				n[d.decode('utf-8')] = ''
 
 	return (y,n)
 
@@ -140,6 +145,7 @@ def matchgenre(imdb_genre,genres,genres_path):
 # genres_path is the path to a folder where movies are linked to by genres
 
 	imdb_genre = imdb_genre.lower()
+	#print 'Genre: ['+imdb_genre+']'		# comment
 	
 	# match Genre section in config file
 	if genres.get(imdb_genre):
@@ -148,33 +154,71 @@ def matchgenre(imdb_genre,genres,genres_path):
 			return genres_path+genres.get(imdb_genre)+"/"
 	else:
 	# match folders
-		g = os.listdir(genres_path)
+		g = listdir(genres_path)
 		r = [m.group(0) for l in g for m in [re.compile("^("+imdb_genre+").*",re.I).search(l)] if m]
 		if len(r)==1:
-			if os.path.isdir(genres_path+r[0]+'/'):
+			if isdir(genres_path+r[0]+'/'):
 				return genres_path+r[0]+'/'
 	# match None	
 	return None
 
 def main():
+	
+	usage = 'Usage: %prog [-n] [-c /path/to/config|-r /path/to/movie_repo -g /path/to/genre]'
+	version = 'v0.3'
+	
+	parser = OptionParser(usage=usage,version="%prog "+version)
+	parser.add_option("-n","--dry-run", action="store_true", dest="display", default=False, help="display only, do no harm")
+	group1 = OptionGroup(parser, "Configuration Options")
+	group1.add_option("-c","--config", type="string", dest="config",default="GM.cfg", metavar="/path/to/config", help="desired config file, default file is [%default]")
+	group1.add_option("-r","--repository",type="string",dest="movies_repo",metavar="/path/to/movie_repo", help="the path to movies repository")
+	group1.add_option("-g","--genres_path",type="string",dest="genres_path",metavar="/path/to/genre", help="the path to genres directory")
+	parser.add_option_group(group1)
 
+	(opts, args) = parser.parse_args()
+	print opts.display,opts.config,opts.movies_repo,opts.genres_path	# comment
+
+	if opts.config:
+		confile = opts.config
+	else:
+		confile = 'GM.cfg'
         config = ConfigParser.RawConfigParser()
-        if not isfile('GM.cfg'):
-                print 'I can not find config file GM.cfg in current directory. You can adopt example file GM.cfg.example and rename it to GM.cfg. Exiting ...'
+        if not isfile(confile):
+                print 'I can not find config file '+confile+'. You can adopt example file GM.cfg.example and rename it to default config file GM.cfg. Exiting ...'
                 sys.exit(errno.ENOENT)
 
-        config.read('GM.cfg')
-        movies_repo = config.get('Path','movies_repo').encode('UTF8')
-        genres_path = config.get('Path','genre_path').encode('UTF8')
+        config.read(confile)
+        if opts.movies_repo:
+		movies_repo = opts.movies_repo
+	else:
+		movies_repo = config.get('Path','movies_repo').encode('UTF8')
+        if opts.genres_path:
+		genres_path = opts.genres_path
+	else:
+		genres_path = config.get('Path','genre_path').encode('UTF8')
         genres = dict(config.items('Genre'))
-        #print genres
+        #print genres		# comment
 
         #m = str(raw_input('Movie Name: '))
         #y = str(raw_input('Movie Year: '))
         #res = querymovie(title=m, year=y)
-        y,n = searchdir(movies_repo)
-        print 'we have processed the following '+str(len(y))+' movies.'
-	ppprint().pprint(y.keys())
+        
+	y,n = searchdir(movies_repo)
+
+        #print 'we have processed the following '+str(len(y))+' movies.'
+	#ppprint().pprint(y.keys())
+	for m in y:
+		for g in y[m]:
+			#print m.decode("utf-8"),g		# comment
+			linkd = matchgenre(g,genres,genres_path)
+			if linkd:
+				#print linkd+m		# comment
+				if not isfile(linkd+m):
+					if opts.display:
+						print 'Link ['+linkd+m+'] would be created for movie ['+m+'].'
+					else:
+						symlink(movies_repo+m,linkd+m)
+						# print 'Link ['+linkd+m+'] is created for movie ['+m+'].'	
 	print '\nwe find no IMDB info for the following '+str(len(n))+' movies,'
 	ppprint().pprint(n.keys())
 
