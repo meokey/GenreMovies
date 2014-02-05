@@ -1,7 +1,10 @@
 [Path]
 movies_repo = /data/movie_repo/.ALL/
 genre_path = /shared/movies/
-
+# the config Display has HIGHER priority than argument -n, so be careful to enable the next config line
+#Display = True
+#TODO = GM.todo
+#IGNORE = GM.ignore
 [Genre]
 # program automatically matches vary capitalization styles. ie. "action" matches "action", "ACTION", or "Action". Hence you do not have to specify capitalization styles here.
 # the left genres are case insensetive, but the value on the right has to match the folder name and is case sensetive depending on OS, hence, you dont need quotation or other marks
